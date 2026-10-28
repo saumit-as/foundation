@@ -1,4 +1,4 @@
-base-url: "https://api.yourdomain.com/ntfy"
+base-url: "https://ntfy.yourdomain.com"
 listen-http: ":80"
 cache-file: "/var/cache/ntfy/cache.db"
 cache-duration: "168h"

@@ -1,0 +1,55 @@
+{
+  "$schema": "./persona.schema.json",
+  "schema_version": "1.0",
+  "core_domains": [
+    "distributed systems & homelab architecture",
+    "compiler design & language runtimes",
+    "multimodal AI embeddings & retrieval augmented generation",
+    "zero-trust networking & edge security",
+    "cross-platform mobile & desktop engineering"
+  ],
+  "active_projects": [
+    {
+      "slug": "memoria-v3",
+      "name": "Memoria v3 Personal Context Engine",
+      "focus_summary": "Building self-hosted scratchpad, multimodal ingestion pipeline with embeddinggemma-2, and gpt-6-luna synthesis",
+      "priority_weight": 1.5,
+      "last_active_date": "2026-10-29"
+    },
+    {
+      "slug": "homelab-infrastructure",
+      "name": "Proxmox & Cloudflare Zero Trust Homelab",
+      "focus_summary": "Hardening internal LXC services, tunnel configurations, automated backups, and low-latency internal DNS",
+      "priority_weight": 1.2,
+      "last_active_date": "2026-10-28"
+    }
+  ],
+  "current_learning_threads": [
+    {
+      "topic": "google/embeddinggemma-2 token budget & multimodal encoding",
+      "recent_questions": [
+        "How to optimize soft token allocation across interleaved 32-frame video reels and OCR text?",
+        "What are the latency tradeoffs between bfloat16 and float32 during CPU inference?"
+      ],
+      "depth_level": "deep_dive"
+    },
+    {
+      "topic": "Deterministic prompt caching optimization with gpt-6-luna",
+      "recent_questions": [
+        "What is the exact token threshold to guarantee 90% prefix cache hits on OpenAI API?",
+        "How to seamlessly roll over nightly persona snapshots without invalidating cached prefixes during active hours?"
+      ],
+      "depth_level": "intermediate"
+    }
+  ],
+  "synthesis_preferences": {
+    "spark_threshold": 0.72,
+    "preferred_style": "Concise, highly technical Markdown with structural diagrams, concrete code snippets, and explicit conceptual bridges"
+  },
+  "ignored_or_archived_topics": [
+    "generic productivity listicles",
+    "unverified crypto news",
+    "social media drama"
+  ]
+}
+

@@ -4,7 +4,7 @@ services:
     container_name: scratchpad-postgres
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-scratchpad}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"
     volumes:
       - ./data/redis:/data
     healthcheck:
@@ -97,7 +97,7 @@ services:
     restart: unless-stopped
     command: ["serve"]
     ports:
-      - "127.0.0.1:8085:80"
+      - "8085:80"
     environment:
       TZ: ${TZ:-Asia/Kolkata}
     volumes:
