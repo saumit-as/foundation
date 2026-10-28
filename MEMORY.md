@@ -42,7 +42,8 @@
 ---
 
 ## 4. Current Execution State
-- **Completed Task:** Task 01 (`tasks/01_INFRA_POSTGRES_REDIS_AND_ENV.md`) — `[x] PASSED`
-- **Container Environment:** Dedicated LXC `foundation` (VMID 102, IP `192.168.88.102/24`), Docker 29.9.2, Docker Compose v5.6.1, `postgres` (`pgvector pg16`), `redis:7-alpine`, and `ntfy` verified healthy.
-- **Next Task:** Task 02 (`tasks/02_BACKEND_SCAFFOLD_ORM_AND_ALEMBIC.md`) — `/server` scaffold, 10 SQLModel tables, Alembic migrations with `VECTOR(768)` HNSW index.
+- **Completed Tasks:**
+  - Task 01 (`tasks/01_INFRA_POSTGRES_REDIS_AND_ENV.md`) — `[x] PASSED`
+  - Task 02 (`tasks/02_BACKEND_SCAFFOLD_ORM_AND_ALEMBIC.md`) — `[x] PASSED`
+- **Next Task:** Task 03 (`tasks/03_AUTH_CLI_QR_PAIRING_AND_FAST_CAPTURE_API.md`) — Zero-Trust auth middleware, `app/cli.py` (`--qr`), `<50ms` `/capture`, `/media` Range stream & `/sync/delta`.
 

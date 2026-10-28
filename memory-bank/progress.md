@@ -7,7 +7,7 @@ Based on [`tasks/00_TASK_RUNNER_AND_INDEX.md`](../tasks/00_TASK_RUNNER_AND_INDEX
 | ID | Task File | Scope Summary | User Intervention | Verification Gate | Status |
 |---|---|---|---|---|---|
 | **01** | `tasks/01_INFRA_POSTGRES_REDIS_AND_ENV.md` | Docker Compose (`postgres`, `redis`, `ntfy`, `cloudflared`), `init.sql`, backup, `.env` | **YES** (GPU / Docker check + `.env` secrets) | `docker compose ... psql ... count(*) == 3` | `[x] PASSED` |
-| **02** | `tasks/02_BACKEND_SCAFFOLD_ORM_AND_ALEMBIC.md` | `/server` `uv` setup, 10 SQLModel/SQLAlchemy tables, triggers, `VECTOR(768)` HNSW index & Alembic | No | `uv run ruff check . && uv run mypy app && uv run alembic upgrade head` | `[ ] PENDING` |
+| **02** | `tasks/02_BACKEND_SCAFFOLD_ORM_AND_ALEMBIC.md` | `/server` `uv` setup, 10 SQLModel/SQLAlchemy tables, triggers, `VECTOR(768)` HNSW index & Alembic | No | `uv run ruff check . && uv run mypy app && uv run alembic upgrade head` | `[x] PASSED` |
 | **03** | `tasks/03_AUTH_CLI_QR_PAIRING_AND_FAST_CAPTURE_API.md` | Zero-Trust auth middleware, `app/cli.py` (`--qr`), `<50ms` `/capture`, `/media` Range stream & `/sync/delta` | No | `uv run pytest tests/test_task_03_capture_sync.py -v` | `[ ] PENDING` |
 | **04** | `tasks/04_EMBEDDING_GEMMA2_AND_HYBRID_SEARCH.md` | `embedder.py` (`google/embeddinggemma-2` in `float32`/`bfloat16`, 768d, Redis mutex) & Hybrid RRF `/search` | **YES** (Verify `HF_TOKEN` access) | `uv run pytest tests/test_task_04_embedder_search.py -v` | `[ ] PENDING` |
 | **05** | `tasks/05_MULTIMODAL_SCRAPER_OCR_WHISPER_AND_WORKERS.md` | Taskiq queues, `scraper.py` (`trafilatura`, `PyMuPDF`, `yt-dlp` + clip + cookies, `PaddleOCR`, `faster-whisper`), Rescue API | No | `uv run pytest tests/test_task_05_scraper_workers.py -v` | `[ ] PENDING` |
