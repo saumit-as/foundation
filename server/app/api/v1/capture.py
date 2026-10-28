@@ -1,6 +1,11 @@
 import logging
+import uuid
+from datetime import UTC, datetime
+from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from redis.asyncio import from_url as redis_from_url
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +15,7 @@ from app.core.config import settings
 from app.core.security import get_current_device
 from app.db.session import get_async_session
 from app.models.enums import CaptureTypeEnum, ProcessingStatusEnum
-from app.models.tables import Capture, Device, ReadingSession
+from app.models.tables import Capture, CaptureAnnotation, Device, Embedding, ReadingSession
 from app.schemas.capture import (
     CaptureAcceptedResponse,
     CaptureBatchRequest,
@@ -151,3 +156,110 @@ async def create_capture_batch(
         accepted_ids=accepted_ids,
         max_sync_version=max_sync_version,
     )
+
+
+class AnnotationCreateRequest(BaseModel):
+    content: str = Field(..., min_length=1)
+
+
+class CaptureMetaUpdateRequest(BaseModel):
+    title: str | None = None
+    user_tags: list[str] | None = None
+    page_range: str | None = None
+
+
+@router.post("/captures/{capture_id}/annotations", status_code=status.HTTP_201_CREATED)
+async def add_capture_annotation(
+    capture_id: UUID,
+    payload: AnnotationCreateRequest,
+    device: Device = Depends(get_current_device),
+    session: AsyncSession = Depends(get_async_session),
+) -> dict[str, Any]:
+    """Append-only marginalia: appends follow-up thoughts without mutating original raw_text."""
+    capture = await session.get(Capture, capture_id)
+    if not capture or capture.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Capture not found")
+
+    annotation_id = uuid.uuid4()
+    annotation = CaptureAnnotation(
+        id=annotation_id,
+        capture_id=capture_id,
+        content=payload.content.strip(),
+        created_at=datetime.now(UTC),
+    )
+    session.add(annotation)
+
+    # Append to annotations_concat preserving raw_text untouched!
+    current_annotations = capture.annotations_concat or ""
+    addition = f"\n[Annotation]: {payload.content.strip()}"
+    capture.annotations_concat = (current_annotations + addition).strip()
+    capture.updated_at = datetime.now(UTC)
+    session.add(capture)
+    await session.commit()
+
+    # Re-embed chunk 0 with updated annotations
+    try:
+        from app.workers.tasks import get_embedder
+
+        embedder = get_embedder()
+        title = capture.title or capture.extracted_title or "Untitled Note"
+        full_text = f"{capture.raw_text or ''}\n\n{capture.annotations_concat}".strip()
+        vec = await embedder.encode_text_document(title, full_text)
+
+        upsert_stmt = (
+            pg_insert(Embedding)
+            .values(
+                id=uuid.uuid4(),
+                owner_id=capture_id,
+                owner_table="captures",
+                chunk_index=0,
+                modality_composition="text",
+                chunk_preview_text=full_text[:1200],
+                token_count=len(full_text.split()),
+                embedding=vec,
+            )
+            .on_conflict_do_update(
+                index_elements=["owner_id", "owner_table", "chunk_index"],
+                set_={
+                    "chunk_preview_text": full_text[:1200],
+                    "token_count": len(full_text.split()),
+                    "embedding": vec,
+                },
+            )
+        )
+        await session.execute(upsert_stmt)
+        await session.commit()
+    except Exception as exc:
+        logger.debug("Annotation embedding non-critical error: %s", exc)
+
+    return {
+        "status": "CREATED",
+        "annotation_id": str(annotation_id),
+        "capture_id": str(capture_id),
+        "annotations_concat": capture.annotations_concat,
+    }
+
+
+@router.patch("/captures/{capture_id}/meta")
+async def update_capture_meta(
+    capture_id: UUID,
+    payload: CaptureMetaUpdateRequest,
+    device: Device = Depends(get_current_device),
+    session: AsyncSession = Depends(get_async_session),
+) -> dict[str, Any]:
+    """Updates non-destructive metadata fields like user_tags, title, or page_range."""
+    capture = await session.get(Capture, capture_id)
+    if not capture or capture.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Capture not found")
+
+    if payload.title is not None:
+        capture.title = payload.title
+    if payload.user_tags is not None:
+        capture.user_tags = payload.user_tags
+    if payload.page_range is not None:
+        capture.page_range = payload.page_range
+    capture.updated_at = datetime.now(UTC)
+    session.add(capture)
+    await session.commit()
+    return {"status": "UPDATED", "id": str(capture_id)}
+

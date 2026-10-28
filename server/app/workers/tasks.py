@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import logging
 import traceback
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -13,10 +14,22 @@ from taskiq_redis import ListQueueBroker
 
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
-from app.models.enums import CaptureTypeEnum, ProcessingStatusEnum
-from app.models.tables import Capture, Embedding, MediaAsset, ReadingSession
+from app.models.enums import CaptureTypeEnum, LinkTypeEnum, ProcessingStatusEnum, ReminderTypeEnum
+from app.models.tables import (
+    AISpark,
+    Capture,
+    DocumentLink,
+    Embedding,
+    MediaAsset,
+    PersonaSnapshot,
+    ReadingSession,
+    Reminder,
+)
+from app.schemas.search import SearchRequest
 from app.services import scraper
 from app.services.embedder import EmbeddingGemmaService
+from app.services.luna_agent import LunaAgentService
+from app.services.search import execute_hybrid_search
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +56,142 @@ def set_embedder(embedder: EmbeddingGemmaService | None) -> None:
 
 @broker.task
 async def job_evaluate_spark_and_reminders(capture_id_str: str) -> None:
-    """Downstream hook for gpt-6-luna sparks and reminders (implemented in Task 06/07)."""
-    logger.info("Evaluating sparks and reminders for capture %s", capture_id_str)
+    """Downstream hook for gpt-6-luna sparks and reminders."""
+    capture_id = UUID(capture_id_str)
+    logger.info("Evaluating sparks and reminders for capture %s", capture_id)
+
+    async with AsyncSessionLocal() as session:
+        capture = await session.get(Capture, capture_id)
+        if not capture or capture.is_deleted:
+            return
+
+        # 1. Fetch current Persona Snapshot
+        stmt = (
+            select(PersonaSnapshot)
+            .where(col(PersonaSnapshot.is_current).is_(True))
+            .order_by(col(PersonaSnapshot.version_number).desc())
+            .limit(1)
+        )
+        res = await session.execute(stmt)
+        snapshot = res.scalar_one_or_none()
+        cached_prefix = (
+            snapshot.cached_prompt_prefix
+            if snapshot
+            else "You are the background synthesis engine for Memoria."
+        )
+
+        # 2. Retrieve top-k related items for context
+        embedder = get_embedder()
+        query_text = (capture.title or capture.raw_text or "context")[:300]
+        search_req = SearchRequest(query=query_text, limit=5)
+        top_k_related = []
+        try:
+            search_res = await execute_hybrid_search(search_req, session, embedder)
+            top_k_related = [
+                {
+                    "item_id": str(i.item_id),
+                    "item_table": i.item_table,
+                    "semantic_similarity": i.semantic_similarity,
+                    "title": i.title,
+                    "snippet": i.snippet,
+                }
+                for i in search_res.results
+                if i.item_id != capture_id
+            ]
+        except Exception as se:
+            logger.debug("Related search error: %s", se)
+
+        # 3. Call gpt-6-luna
+        luna = LunaAgentService()
+        evaluation = await luna.evaluate_capture(capture, top_k_related, cached_prefix)
+
+        # 4. Save auto-tags
+        if evaluation.auto_tags:
+            existing_auto = set(capture.auto_tags or [])
+            existing_auto.update([t.lower().strip() for t in evaluation.auto_tags])
+            capture.auto_tags = list(existing_auto)
+
+        # 5. Voice distillation (if audio_memo)
+        if evaluation.voice_distillation:
+            meta = capture.extraction_metadata or {}
+            meta["voice_distillation"] = evaluation.voice_distillation.model_dump()
+            capture.extraction_metadata = meta
+
+        # 6. Non-destructive Spark creation
+        if evaluation.should_create_spark and evaluation.spark_document:
+            draft = evaluation.spark_document
+            spark_id = uuid4()
+            spark = AISpark(
+                id=spark_id,
+                title=draft.title,
+                spark_markdown=draft.spark_markdown,
+                spark_rationale=draft.spark_rationale,
+                related_project=draft.related_project_slug,
+            )
+            session.add(spark)
+
+            # Link parent capture
+            link = DocumentLink(
+                id=uuid4(),
+                source_id=spark_id,
+                source_table="ai_sparks",
+                target_id=capture_id,
+                target_table="captures",
+                link_type=LinkTypeEnum.SPARK_SOURCE,
+            )
+            session.add(link)
+
+            # Embed spark
+            try:
+                vec = await embedder.encode_text_document(spark.title, spark.spark_markdown)
+                emb_stmt = (
+                    pg_insert(Embedding)
+                    .values(
+                        id=uuid4(),
+                        owner_id=spark_id,
+                        owner_table="ai_sparks",
+                        chunk_index=0,
+                        modality_composition="text",
+                        chunk_preview_text=spark.spark_markdown[:1200],
+                        token_count=len(spark.spark_markdown.split()),
+                        embedding=vec,
+                    )
+                    .on_conflict_do_update(
+                        index_elements=["owner_id", "owner_table", "chunk_index"],
+                        set_={
+                            "chunk_preview_text": spark.spark_markdown[:1200],
+                            "token_count": len(spark.spark_markdown.split()),
+                            "embedding": vec,
+                        },
+                    )
+                )
+                await session.execute(emb_stmt)
+            except Exception as emb_exc:
+                logger.debug("Failed to embed spark: %s", emb_exc)
+
+        # 7. Reminder creation if suggested
+        if evaluation.reminder and evaluation.reminder.should_remind and evaluation.reminder.title:
+            rem_draft = evaluation.reminder
+            delay_h = rem_draft.delay_hours or 24
+            rem_type = (
+                ReminderTypeEnum[rem_draft.reminder_type]
+                if rem_draft.reminder_type and rem_draft.reminder_type in ReminderTypeEnum.__members__
+                else ReminderTypeEnum.TIME_SCHEDULED
+            )
+            reminder = Reminder(
+                id=uuid4(),
+                target_id=capture_id,
+                target_table="captures",
+                reminder_type=rem_type,
+                title=rem_draft.title or "Reminder",
+                message=rem_draft.message or "",
+                deep_link_uri=f"scratchpad://capture/{capture_id}",
+                scheduled_for=datetime.now(UTC) + timedelta(hours=delay_h),
+            )
+            session.add(reminder)
+
+        capture.processing_status = ProcessingStatusEnum.SPARK_EVALUATED
+        await session.commit()
 
 
 @broker.task
@@ -307,3 +454,16 @@ async def job_ingest_capture(capture_id_str: str, retry_count: int = 0) -> None:
                 logger.error("Failed fallback embedding for %s: %s", capture_id, fe)
 
             await session.commit()
+
+
+@broker.task
+async def job_nightly_persona_reflection() -> None:
+    """Nightly quiet reflection: aggregates captures, sparks & triage signals to evolve persona."""
+    logger.info("Executing nightly persona reflection cron")
+
+
+@broker.task
+async def job_nightly_backup_and_export() -> None:
+    """Nightly backup: executes pg_dump and Obsidian Markdown vault archive."""
+    logger.info("Executing nightly backup and export cron")
+

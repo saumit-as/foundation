@@ -283,6 +283,9 @@ class AiSpark(SQLModel, table=True):
     )
 
 
+AISpark = AiSpark
+
+
 class DocumentLink(SQLModel, table=True):
     __tablename__ = "document_links"
     __table_args__ = (UniqueConstraint("source_id", "target_id", "link_type", name="uq_doc_links"),)

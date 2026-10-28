@@ -86,7 +86,11 @@ def upgrade() -> None:
     CREATE OR REPLACE FUNCTION bump_sync_version()
     RETURNS TRIGGER AS $$
     BEGIN
-        NEW.updated_at = NOW();
+        BEGIN
+            NEW.updated_at = NOW();
+        EXCEPTION WHEN undefined_column THEN
+            -- Table does not have updated_at
+        END;
         NEW.sync_version = nextval('global_sync_seq');
         RETURN NEW;
     END;
