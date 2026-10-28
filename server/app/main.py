@@ -35,5 +35,6 @@ app.include_router(api_v1_router)
 
 
 @app.get("/health", tags=["system"])
+@app.get("/healthz", tags=["system"])
 async def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "memoria-server"}
