@@ -1,0 +1,53 @@
+name: app_client
+description: "Memoria v3 Personal Context & Fast Scratchpad Client"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  crypto: ^3.0.3
+
+  # State Management & DI
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Offline SQLite Database & Persistence
+  drift: any
+  sqlite3_flutter_libs: any
+  sqlite3: any
+  path_provider: any
+  path: any
+
+  # Networking & Real-time
+  dio: ^5.4.3+1
+  web_socket_channel: ^3.0.0
+  connectivity_plus: ^6.0.3
+
+  # Secure Storage & Cryptography
+  flutter_secure_storage: ^9.2.2
+  uuid: ^4.4.0
+
+  # OS Integrations & Hardware
+  receive_sharing_intent: ^1.4.8
+  image_picker: ^1.1.1
+  cunning_document_scanner: ^1.2.0
+  mobile_scanner: ^5.1.1
+  flutter_local_notifications: ^17.1.2
+  workmanager: ^0.5.2
+  flutter_markdown: ^0.7.2
+  url_launcher: ^6.2.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  build_runner: any
+  drift_dev: any
+
+flutter:
+  uses-material-design: true
