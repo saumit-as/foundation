@@ -24,6 +24,9 @@ dependencies = [
     "qrcode>=8.0",
     "pillow>=11.0.0",
     "numpy>=2.1.0",
+    "torch>=2.4.0",
+    "sentence-transformers>=3.2.0",
+    "transformers>=4.46.0",
 ]
 
 [dependency-groups]
