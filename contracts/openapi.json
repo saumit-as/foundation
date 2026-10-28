@@ -1,0 +1,331 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Memoria v3 — Personal Context, Scratchpad & Multimodal Ingestion Engine API",
+    "version": "3.1.0",
+    "description": "Zero-Trust Home Server API contract for instant offline-first capture, multi-page book sessions, append-only marginalia, multimodal EmbeddingGemma 2 (768d) hybrid search, Ask Memoria conversational RAG, daily triage, browser rescue, and non-destructive GPT-6-Luna AI Sparks."
+  },
+  "security": [
+    {
+      "BearerAuth": [],
+      "CFAccessClientId": [],
+      "CFAccessClientSecret": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "CFAccessClientId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "CF-Access-Client-Id"
+      },
+      "CFAccessClientSecret": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "CF-Access-Client-Secret"
+      }
+    },
+    "schemas": {
+      "CaptureType": {
+        "type": "string",
+        "enum": [
+          "text_note",
+          "article_url",
+          "pdf_document",
+          "video_reel",
+          "image_upload",
+          "book_scan",
+          "audio_memo"
+        ]
+      },
+      "ProcessingStatus": {
+        "type": "string",
+        "enum": [
+          "QUEUED",
+          "EXTRACTING_MEDIA",
+          "EXTRACTION_PARTIAL",
+          "EMBEDDING",
+          "INDEXED",
+          "SPARK_EVALUATED",
+          "FAILED_RETRYABLE",
+          "DEAD_LETTER"
+        ]
+      },
+      "CaptureCreateRequest": {
+        "type": "object",
+        "required": ["id", "capture_type", "captured_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "reading_session_id": { "type": ["string", "null"], "format": "uuid" },
+          "capture_type": { "$ref": "#/components/schemas/CaptureType" },
+          "title": { "type": ["string", "null"], "maxLength": 512 },
+          "raw_text": { "type": ["string", "null"] },
+          "source_url": { "type": ["string", "null"] },
+          "page_range": { "type": ["string", "null"], "maxLength": 64 },
+          "user_tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "captured_at": { "type": "string", "format": "date-time" },
+          "dom_fallback_markdown": { "type": ["string", "null"] }
+        }
+      },
+      "CaptureAcceptedResponse": {
+        "type": "object",
+        "required": ["status", "id", "processing_status", "sync_version"],
+        "properties": {
+          "status": { "type": "string", "const": "ACCEPTED" },
+          "id": { "type": "string", "format": "uuid" },
+          "processing_status": { "$ref": "#/components/schemas/ProcessingStatus" },
+          "sync_version": { "type": "integer" }
+        }
+      },
+      "SearchRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": { "type": "string", "minLength": 1 },
+          "top_k": { "type": "integer", "default": 15, "minimum": 1, "maximum": 50 },
+          "min_similarity": { "type": "number", "default": 0.45 },
+          "filter_types": { "type": "array", "items": { "type": "string" } },
+          "include_archived": { "type": "boolean", "default": false }
+        }
+      },
+      "AskMemoriaRequest": {
+        "type": "object",
+        "required": ["question"],
+        "properties": {
+          "question": { "type": "string", "minLength": 1 },
+          "save_as_spark": { "type": "boolean", "default": false }
+        }
+      },
+      "SynthesizeSparkRequest": {
+        "type": "object",
+        "required": ["capture_ids"],
+        "properties": {
+          "capture_ids": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" },
+            "minItems": 2
+          },
+          "user_angle": { "type": ["string", "null"] }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/capture": {
+      "post": {
+        "summary": "Single Instant Capture (<50ms SLA)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CaptureCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted into PostgreSQL and queued in Redis",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CaptureAcceptedResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/capture/batch": {
+      "post": {
+        "summary": "Offline Outbox Batch Flush (up to 50 items)",
+        "responses": {
+          "202": { "description": "Batch accepted" }
+        }
+      }
+    },
+    "/api/v1/capture/{capture_id}/media": {
+      "post": {
+        "summary": "Multipart Binary Upload for Multi-Page Book Scans, PDFs, Images, and Audio Memos",
+        "responses": {
+          "201": { "description": "Media stored and ingestion triggered" }
+        }
+      }
+    },
+    "/api/v1/media/{asset_id}": {
+      "get": {
+        "summary": "Authenticated Media Streaming & Thumbnail Fetch (Range-enabled)",
+        "responses": {
+          "200": { "description": "Binary media stream" },
+          "206": { "description": "Partial content range stream" }
+        }
+      }
+    },
+    "/api/v1/sync/delta": {
+      "get": {
+        "summary": "Monotonic Delta Sync for Captures, Annotations, Reading Sessions, Media Metadata, AI Sparks, and Reminders",
+        "parameters": [
+          { "name": "since_version", "in": "query", "required": true, "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 200 } }
+        ],
+        "responses": {
+          "200": { "description": "Delta sync payload" }
+        }
+      }
+    },
+    "/api/v1/search": {
+      "post": {
+        "summary": "Multimodal Hybrid RRF Search (EmbeddingGemma 2 768d + BM25 + Persona Boost)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SearchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Ranked multimodal search results" }
+        }
+      }
+    },
+    "/api/v1/search/ask": {
+      "post": {
+        "summary": "On-Demand Conversational RAG ('Ask Memoria') with Cited Captures",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AskMemoriaRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Cited Markdown answer and follow-up questions" }
+        }
+      }
+    },
+    "/api/v1/captures/{id}/annotations": {
+      "post": {
+        "summary": "Append an immutable follow-up note / marginalia to an existing capture",
+        "responses": { "201": { "description": "Annotation appended and parent re-indexed" } }
+      }
+    },
+    "/api/v1/captures/{id}/meta": {
+      "patch": {
+        "summary": "Update mutable capture metadata (user_tags, reading_session_id, page_range, is_archived)",
+        "responses": { "200": { "description": "Updated" } }
+      }
+    },
+    "/api/v1/captures/partial": {
+      "get": {
+        "summary": "List captures in EXTRACTION_PARTIAL state for WXT Browser Extension Rescue Queue",
+        "responses": { "200": { "description": "Partial captures list" } }
+      }
+    },
+    "/api/v1/captures/{id}/rescue": {
+      "post": {
+        "summary": "Push authenticated browser DOM/metadata from WXT extension for a blocked URL",
+        "responses": { "202": { "description": "Rescue accepted and re-queued" } }
+      }
+    },
+    "/api/v1/scraper/cookies": {
+      "post": {
+        "summary": "Sync scoped Netscape cookie jar from WXT extension for yt-dlp",
+        "responses": { "200": { "description": "Cookies updated" } }
+      }
+    },
+    "/api/v1/reading-sessions": {
+      "post": {
+        "summary": "Start a sticky Book / Reading Session for 1-tap burst scanning",
+        "responses": { "201": { "description": "Reading session created" } }
+      }
+    },
+    "/api/v1/reading-sessions/active": {
+      "get": {
+        "summary": "Get currently active sticky Reading Session(s)",
+        "responses": { "200": { "description": "Active reading sessions" } }
+      }
+    },
+    "/api/v1/reading-sessions/{id}": {
+      "patch": {
+        "summary": "Update or close a Reading Session",
+        "responses": { "200": { "description": "Updated" } }
+      }
+    },
+    "/api/v1/sparks/synthesize": {
+      "post": {
+        "summary": "Intentionally synthesize 2+ selected captures into an AI Spark document",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SynthesizeSparkRequest" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Spark synthesized" } }
+      }
+    },
+    "/api/v1/sparks/{id}": {
+      "get": {
+        "summary": "Fetch AI Spark document with bidirectional graph links",
+        "responses": { "200": { "description": "Spark detail and linked captures" } }
+      }
+    },
+    "/api/v1/sparks/{id}/state": {
+      "patch": {
+        "summary": "Update AI Spark state (is_read, is_pinned, is_dismissed)",
+        "responses": { "200": { "description": "Updated" } }
+      }
+    },
+    "/api/v1/sparks/{id}/export.md": {
+      "get": {
+        "summary": "Export AI Spark as Markdown with YAML frontmatter and [[wiki-links]]",
+        "responses": { "200": { "description": "Markdown document" } }
+      }
+    },
+    "/api/v1/triage/deck": {
+      "get": {
+        "summary": "Fetch Morning/Evening Review Triage Deck of unreviewed captures and sparks",
+        "responses": { "200": { "description": "Triage deck items" } }
+      }
+    },
+    "/api/v1/triage/{item_id}/decision": {
+      "post": {
+        "summary": "Record triage decision (KEEP, PIN_TO_PROJECT, ARCHIVE, DISMISS) and feed persona signal",
+        "responses": { "200": { "description": "Decision recorded" } }
+      }
+    },
+    "/api/v1/export/markdown": {
+      "get": {
+        "summary": "Delta export of Markdown vault files with YAML frontmatter and [[wiki-links]]",
+        "responses": { "200": { "description": "Markdown export bundle" } }
+      }
+    },
+    "/api/v1/reminders/{id}/ack": {
+      "patch": {
+        "summary": "Acknowledge or snooze a reminder",
+        "responses": { "200": { "description": "Updated" } }
+      }
+    },
+    "/api/v1/persona": {
+      "get": {
+        "summary": "Fetch current evolving user persona snapshot",
+        "responses": { "200": { "description": "Current persona snapshot" } }
+      },
+      "put": {
+        "summary": "Override user persona state and regenerate cached prompt prefix",
+        "responses": { "200": { "description": "Persona updated" } }
+      }
+    },
+    "/api/v1/persona/reflect": {
+      "post": {
+        "summary": "Manually trigger GPT-6-Luna persona reflection job",
+        "responses": { "202": { "description": "Reflection job queued" } }
+      }
+    }
+  }
+}

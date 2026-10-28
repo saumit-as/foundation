@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UserPersonaState",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "core_domains",
+    "active_projects",
+    "current_learning_threads",
+    "synthesis_preferences",
+    "ignored_or_archived_topics"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "core_domains": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Long-term technical and personal domains of expertise"
+    },
+    "active_projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "focus_summary",
+          "priority_weight"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "focus_summary": {
+            "type": "string"
+          },
+          "priority_weight": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 2.0
+          },
+          "last_active_date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    },
+    "current_learning_threads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "topic",
+          "recent_questions",
+          "depth_level"
+        ],
+        "properties": {
+          "topic": {
+            "type": "string"
+          },
+          "recent_questions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "depth_level": {
+            "type": "string",
+            "enum": [
+              "exploring",
+              "intermediate",
+              "deep_dive"
+            ]
+          }
+        }
+      }
+    },
+    "synthesis_preferences": {
+      "type": "object",
+      "required": [
+        "spark_threshold",
+        "preferred_style"
+      ],
+      "properties": {
+        "spark_threshold": {
+          "type": "number",
+          "default": 0.72,
+          "description": "Minimum semantic novelty/connection score required before generating an ai_spark"
+        },
+        "preferred_style": {
+          "type": "string"
+        }
+      }
+    },
+    "ignored_or_archived_topics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
