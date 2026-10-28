@@ -49,3 +49,25 @@ class MediaUploadResponse(BaseModel):
     file_size_bytes: int
     sha256_checksum: str
     mime_type: str
+
+
+class CaptureResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    device_id: uuid.UUID | None = None
+    reading_session_id: uuid.UUID | None = None
+    capture_type: CaptureTypeEnum
+    processing_status: ProcessingStatusEnum
+    title: str | None = None
+    raw_text: str | None = None
+    source_url: str | None = None
+    page_range: str | None = None
+    user_tags: list[str] = Field(default_factory=list)
+    extracted_title: str | None = None
+    extracted_markdown: str | None = None
+    ocr_text: str | None = None
+    transcript_text: str | None = None
+    sync_version: int
+    captured_at: datetime
+
