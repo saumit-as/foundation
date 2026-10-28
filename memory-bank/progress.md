@@ -15,7 +15,7 @@ Based on [`tasks/00_TASK_RUNNER_AND_INDEX.md`](../tasks/00_TASK_RUNNER_AND_INDEX
 | **07** | `tasks/07_NTFY_REMINDER_TRIAGE_AND_CLOUDFLARE_TUNNEL.md` | `notifier.py` (3/day budget, quiet hours, `ntfy` publisher), full Docker build & `cloudflared` | **YES** (Cloudflare Tunnel & Access Token) | `uv run pytest tests/test_task_07_notifier.py -v && docker compose ps` | `[x] PASSED` |
 | **08** | `tasks/08_WXT_BROWSER_EXTENSION.md` | `/extension` WXT MV3 Preact clipper, `@mozilla/readability`, outbox, cookie sync & Rescue Queue badge | **YES** (Load unpacked extension in browser) | `pnpm tsc --noEmit && pnpm wxt build` | `[x] PASSED` |
 | **09** | `tasks/09_FLUTTER_DATA_LAYER_DRIFT_AND_SYNC.md` | `/app_client` scaffold, 6 Drift SQLite tables, Dio Zero-Trust client, `OutboxFlusher` & `NtfyListenerService` | No | `flutter analyze && flutter test test/task_09_sync_test.dart` | `[x] PASSED` |
-| **10** | `tasks/10_FLUTTER_UI_SCREENS_AND_E2E_VERIFICATION.md` | All 6 Flutter screens (QR onboarding, scratchpad, book burst scanner, sparks + export, Ask Memoria, triage, share sheet) | **YES** (Scan QR code & run 5-step E2E smoke test) | `flutter analyze && flutter test test/task_10_ui_test.dart` | `[ ] PENDING` |
+| **10** | `tasks/10_FLUTTER_UI_SCREENS_AND_E2E_VERIFICATION.md` | All 6 Flutter screens (QR onboarding, scratchpad, book burst scanner, sparks + export, Ask Memoria, triage, share sheet) | **YES** (Scan QR code & run 5-step E2E smoke test) | `flutter analyze && flutter test test/task_10_ui_test.dart` | `[x] PASSED` |
 
 ## 2. Completed Artifacts & Files
 - `AGENTS.md`: Full architectural directives and invariants.
