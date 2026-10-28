@@ -45,5 +45,6 @@
 - **Completed Tasks:**
   - Task 01 (`tasks/01_INFRA_POSTGRES_REDIS_AND_ENV.md`) — `[x] PASSED`
   - Task 02 (`tasks/02_BACKEND_SCAFFOLD_ORM_AND_ALEMBIC.md`) — `[x] PASSED`
-- **Next Task:** Task 03 (`tasks/03_AUTH_CLI_QR_PAIRING_AND_FAST_CAPTURE_API.md`) — Zero-Trust auth middleware, `app/cli.py` (`--qr`), `<50ms` `/capture`, `/media` Range stream & `/sync/delta`.
+  - Task 03 (`tasks/03_AUTH_CLI_QR_PAIRING_AND_FAST_CAPTURE_API.md`) — `[x] PASSED`
+- **Next Task:** Task 04 (`tasks/04_EMBEDDING_GEMMA2_AND_HYBRID_SEARCH.md`) — `embedder.py` (`google/embeddinggemma-2` in `float32`/`bfloat16`, 768d, Redis GPU mutex) & Hybrid RRF `/search`.
 

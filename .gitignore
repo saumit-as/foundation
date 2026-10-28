@@ -67,4 +67,6 @@ pnpm-debug.log*
 # Docker & Database Volumes
 postgres_data/
 redis_data/
+infra/data/
+data/
 

@@ -5,12 +5,14 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
 async_engine = create_async_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
+    poolclass=NullPool,
     echo=False,
 )
 

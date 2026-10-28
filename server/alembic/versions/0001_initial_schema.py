@@ -1,10 +1,11 @@
 """Initial schema migration: 10 tables, enums, triggers, GIN and HNSW vector index
 
 Revision ID: 0001_initial_schema
-Revises: 
+Revises:
 Create Date: 2026-10-29 02:20:00.000000
 
 """
+
 from alembic import op
 
 revision = "0001_initial_schema"
@@ -158,13 +159,23 @@ def upgrade() -> None:
     );
     """)
 
-    op.execute("CREATE INDEX IF NOT EXISTS idx_captures_status ON captures(processing_status) WHERE NOT is_deleted;")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_captures_status ON captures(processing_status) WHERE NOT is_deleted;"
+    )
     op.execute("CREATE INDEX IF NOT EXISTS idx_captures_captured_at ON captures(captured_at DESC);")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_captures_triage ON captures(captured_at DESC) WHERE NOT is_triage_reviewed AND NOT is_archived AND NOT is_deleted;")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_captures_triage ON captures(captured_at DESC) WHERE NOT is_triage_reviewed AND NOT is_archived AND NOT is_deleted;"
+    )
     op.execute("CREATE INDEX IF NOT EXISTS idx_captures_sync_version ON captures(sync_version);")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_captures_search_tsv ON captures USING GIN (search_tsv);")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_captures_user_tags ON captures USING GIN (user_tags);")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_captures_auto_tags ON captures USING GIN (auto_tags);")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_captures_search_tsv ON captures USING GIN (search_tsv);"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_captures_user_tags ON captures USING GIN (user_tags);"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_captures_auto_tags ON captures USING GIN (auto_tags);"
+    )
 
     # 4.4 capture_annotations
     op.execute("""
@@ -176,7 +187,9 @@ def upgrade() -> None:
         sync_version BIGINT NOT NULL DEFAULT 1
     );
     """)
-    op.execute("CREATE INDEX IF NOT EXISTS idx_capture_annotations_capture_id ON capture_annotations(capture_id, created_at ASC);")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_capture_annotations_capture_id ON capture_annotations(capture_id, created_at ASC);"
+    )
 
     # 4.5 media_assets
     op.execute("""
@@ -196,7 +209,9 @@ def upgrade() -> None:
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     """)
-    op.execute("CREATE INDEX IF NOT EXISTS idx_media_assets_capture_id ON media_assets(capture_id);")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_media_assets_capture_id ON media_assets(capture_id);"
+    )
 
     # 4.6 ai_sparks
     op.execute("""
@@ -221,7 +236,9 @@ def upgrade() -> None:
         sync_version BIGINT NOT NULL DEFAULT 1
     );
     """)
-    op.execute("CREATE INDEX IF NOT EXISTS idx_ai_sparks_search_tsv ON ai_sparks USING GIN (search_tsv);")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ai_sparks_search_tsv ON ai_sparks USING GIN (search_tsv);"
+    )
     op.execute("CREATE INDEX IF NOT EXISTS idx_ai_sparks_sync_version ON ai_sparks(sync_version);")
 
     # 4.7 document_links
@@ -238,8 +255,12 @@ def upgrade() -> None:
         UNIQUE (source_id, target_id, link_type)
     );
     """)
-    op.execute("CREATE INDEX IF NOT EXISTS idx_doc_links_source ON document_links(source_id, source_table);")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_doc_links_target ON document_links(target_id, target_table);")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_doc_links_source ON document_links(source_id, source_table);"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_doc_links_target ON document_links(target_id, target_table);"
+    )
 
     # 4.8 embeddings
     op.execute("""
@@ -262,7 +283,9 @@ def upgrade() -> None:
     ON embeddings USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 128);
     """)
-    op.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_owner ON embeddings(owner_id, owner_table);")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_embeddings_owner ON embeddings(owner_id, owner_table);"
+    )
 
     # 4.9 persona_snapshots
     op.execute("""
@@ -276,7 +299,9 @@ def upgrade() -> None:
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     """)
-    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_persona_single_current ON persona_snapshots(is_current) WHERE is_current = TRUE;")
+    op.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_persona_single_current ON persona_snapshots(is_current) WHERE is_current = TRUE;"
+    )
 
     # 4.10 reminders
     op.execute("""
@@ -297,7 +322,9 @@ def upgrade() -> None:
         sync_version BIGINT NOT NULL DEFAULT 1
     );
     """)
-    op.execute("CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(scheduled_for) WHERE dispatched_at IS NULL AND NOT is_acknowledged;")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(scheduled_for) WHERE dispatched_at IS NULL AND NOT is_acknowledged;"
+    )
 
     # 5. Triggers for sync_version (one command per op.execute)
     op.execute("DROP TRIGGER IF EXISTS trg_captures_sync_version ON captures;")
@@ -328,7 +355,9 @@ def upgrade() -> None:
     FOR EACH ROW EXECUTE FUNCTION bump_sync_version();
     """)
 
-    op.execute("DROP TRIGGER IF EXISTS trg_capture_annotations_sync_version ON capture_annotations;")
+    op.execute(
+        "DROP TRIGGER IF EXISTS trg_capture_annotations_sync_version ON capture_annotations;"
+    )
     op.execute("""
     CREATE TRIGGER trg_capture_annotations_sync_version
     BEFORE INSERT OR UPDATE ON capture_annotations
@@ -337,7 +366,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DROP TRIGGER IF EXISTS trg_capture_annotations_sync_version ON capture_annotations;")
+    op.execute(
+        "DROP TRIGGER IF EXISTS trg_capture_annotations_sync_version ON capture_annotations;"
+    )
     op.execute("DROP TRIGGER IF EXISTS trg_reading_sessions_sync_version ON reading_sessions;")
     op.execute("DROP TRIGGER IF EXISTS trg_reminders_sync_version ON reminders;")
     op.execute("DROP TRIGGER IF EXISTS trg_sparks_sync_version ON ai_sparks;")

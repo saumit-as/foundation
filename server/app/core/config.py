@@ -37,8 +37,13 @@ class Settings(BaseSettings):
     NTFY_TOPIC: str = "scratchpad_alerts"
     NTFY_ACCESS_TOKEN: str = ""
 
-    # Cloudflare Zero Trust Tunnel
-    CLOUDFLARE_TUNNEL_TOKEN: str = ""
+    # Zero Trust & Security
+    ENFORCE_CF_HEADERS: bool = False
+    CF_ACCESS_CLIENT_ID: str = ""
+    CF_ACCESS_CLIENT_SECRET: str = ""
+    MEDIA_ROOT: Path = (
+        Path(__file__).resolve().parent.parent.parent.parent / "infra" / "data" / "media"
+    )
 
 
 settings = Settings()

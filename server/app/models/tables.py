@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
@@ -7,6 +7,7 @@ from sqlalchemy import (
     CHAR,
     BigInteger,
     Column,
+    Computed,
     DateTime,
     Float,
     ForeignKey,
@@ -15,6 +16,9 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     text,
+)
+from sqlalchemy import (
+    Enum as SAEnum,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlmodel import Field, Relationship, SQLModel
@@ -40,7 +44,7 @@ class Device(SQLModel, table=True):
     api_key_hash: str = Field(sa_column=Column(String(255), nullable=False, unique=True))
     last_sync_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
     is_revoked: bool = Field(default=False, nullable=False)
@@ -59,11 +63,11 @@ class ReadingSession(SQLModel, table=True):
     )
     is_active: bool = Field(default=True, nullable=False)
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
     sync_version: int = Field(
@@ -84,10 +88,27 @@ class Capture(SQLModel, table=True):
         default=None,
         sa_column=Column(ForeignKey("reading_sessions.id", ondelete="SET NULL"), nullable=True),
     )
-    capture_type: CaptureTypeEnum = Field(nullable=False)
+    capture_type: CaptureTypeEnum = Field(
+        sa_column=Column(
+            SAEnum(
+                CaptureTypeEnum,
+                name="capture_type_enum",
+                values_callable=lambda x: [e.value for e in x],
+            ),
+            nullable=False,
+        )
+    )
     processing_status: ProcessingStatusEnum = Field(
         default=ProcessingStatusEnum.QUEUED,
-        nullable=False,
+        sa_column=Column(
+            SAEnum(
+                ProcessingStatusEnum,
+                name="processing_status_enum",
+                values_callable=lambda x: [e.value for e in x],
+            ),
+            nullable=False,
+            server_default=text("'QUEUED'"),
+        ),
     )
 
     # Immutable User Input
@@ -121,12 +142,24 @@ class Capture(SQLModel, table=True):
     )
 
     # TSVector Full-Text Search Column (Generated always as stored in DDL)
-    search_tsv: Any = Field(default=None, sa_column=Column(TSVECTOR))
+    search_tsv: Any = Field(
+        default=None,
+        sa_column=Column(
+            TSVECTOR,
+            Computed(
+                "setweight(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(extracted_title, '')), 'A') || "
+                "setweight(to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(annotations_concat, '')), 'A') || "
+                "setweight(to_tsvector('english', coalesce(ocr_text, '') || ' ' || coalesce(transcript_text, '')), 'B') || "
+                "setweight(to_tsvector('english', coalesce(extracted_markdown, '')), 'C')",
+                persisted=True,
+            ),
+        ),
+    )
 
     # Sync, Triage & Timestamps
     captured_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
     is_triage_reviewed: bool = Field(default=False, nullable=False)
@@ -157,7 +190,7 @@ class CaptureAnnotation(SQLModel, table=True):
     )
     content: str = Field(sa_column=Column(Text, nullable=False))
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
     sync_version: int = Field(
@@ -191,7 +224,7 @@ class MediaAsset(SQLModel, table=True):
         sa_column=Column(Integer, server_default=text("280")),
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
 
@@ -222,16 +255,26 @@ class AiSpark(SQLModel, table=True):
         default=True,
         sa_column=Column(nullable=False, server_default=text("TRUE")),
     )
-    search_tsv: Any = Field(default=None, sa_column=Column(TSVECTOR))
+    search_tsv: Any = Field(
+        default=None,
+        sa_column=Column(
+            TSVECTOR,
+            Computed(
+                "setweight(to_tsvector('english', coalesce(title, '')), 'A') || "
+                "setweight(to_tsvector('english', coalesce(spark_markdown, '')), 'B')",
+                persisted=True,
+            ),
+        ),
+    )
     is_read: bool = Field(default=False, nullable=False)
     is_pinned: bool = Field(default=False, nullable=False)
     is_dismissed: bool = Field(default=False, nullable=False)
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
     sync_version: int = Field(
@@ -253,10 +296,19 @@ class DocumentLink(SQLModel, table=True):
     source_table: str = Field(sa_column=Column(String(32), nullable=False))
     target_id: uuid.UUID = Field(nullable=False)
     target_table: str = Field(sa_column=Column(String(32), nullable=False))
-    link_type: LinkTypeEnum = Field(nullable=False)
+    link_type: LinkTypeEnum = Field(
+        sa_column=Column(
+            SAEnum(
+                LinkTypeEnum,
+                name="link_type_enum",
+                values_callable=lambda x: [e.value for e in x],
+            ),
+            nullable=False,
+        )
+    )
     similarity_score: float | None = Field(default=None, sa_column=Column(Float))
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
 
@@ -288,7 +340,7 @@ class Embedding(SQLModel, table=True):
         ),
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
 
@@ -303,7 +355,7 @@ class PersonaSnapshot(SQLModel, table=True):
     cached_prompt_prefix: str = Field(sa_column=Column(Text, nullable=False))
     summary_diff: str | None = Field(default=None, sa_column=Column(Text))
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
 
@@ -318,7 +370,16 @@ class Reminder(SQLModel, table=True):
     )
     target_id: uuid.UUID = Field(nullable=False)
     target_table: str = Field(sa_column=Column(String(32), nullable=False))
-    reminder_type: ReminderTypeEnum = Field(nullable=False)
+    reminder_type: ReminderTypeEnum = Field(
+        sa_column=Column(
+            SAEnum(
+                ReminderTypeEnum,
+                name="reminder_type_enum",
+                values_callable=lambda x: [e.value for e in x],
+            ),
+            nullable=False,
+        )
+    )
     title: str = Field(sa_column=Column(String(255), nullable=False))
     message: str = Field(sa_column=Column(Text, nullable=False))
     deep_link_uri: str = Field(sa_column=Column(Text, nullable=False))
@@ -328,7 +389,7 @@ class Reminder(SQLModel, table=True):
     is_acknowledged: bool = Field(default=False, nullable=False)
     snoozed_until: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()")),
     )
     sync_version: int = Field(
