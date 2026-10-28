@@ -1,0 +1,122 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: scratchpad-postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-scratchpad}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
+      POSTGRES_DB: ${POSTGRES_DB:-scratchpad_db}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scratchpad} -d ${POSTGRES_DB:-scratchpad_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: scratchpad-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal_net
+
+  server-api:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    container_name: scratchpad-api
+    restart: unless-stopped
+    command: ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    env_file: .env
+    volumes:
+      - ./data/media:/data/media
+      - ./data/hf_cache:/root/.cache/huggingface
+      - ./data/backups:/data/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - internal_net
+
+  server-worker:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    container_name: scratchpad-worker
+    restart: unless-stopped
+    command: ["uv", "run", "taskiq", "worker", "app.workers.tasks:broker", "--workers", "1"]
+    env_file: .env
+    volumes:
+      - ./data/media:/data/media
+      - ./data/hf_cache:/root/.cache/huggingface
+      - ./data/backups:/data/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - internal_net
+
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: scratchpad-ntfy
+    restart: unless-stopped
+    command: ["serve"]
+    ports:
+      - "127.0.0.1:8085:80"
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+    volumes:
+      - ./ntfy/server.yml:/etc/ntfy/server.yml:ro
+      - ./data/ntfy:/var/cache/ntfy
+    networks:
+      - internal_net
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: scratchpad-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?err}
+    depends_on:
+      - server-api
+      - ntfy
+    networks:
+      - internal_net
+
+networks:
+  internal_net:
+    driver: bridge
