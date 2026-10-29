@@ -70,5 +70,5 @@ pnpm-debug.log*
 postgres_data/
 redis_data/
 infra/data/
-data/
+/data/
 
