@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     NTFY_ACCESS_TOKEN: str = ""
 
     # Zero Trust & Security
+    PUBLIC_API_BASE_URL: str = "http://localhost:8000"
     ENFORCE_CF_HEADERS: bool = False
     CF_ACCESS_CLIENT_ID: str = ""
     CF_ACCESS_CLIENT_SECRET: str = ""

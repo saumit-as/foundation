@@ -1,11 +1,15 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from app.api.v1 import api_v1_router
 from app.core.config import settings
+
+DASHBOARD_TEMPLATE_PATH = Path(__file__).parent / "templates" / "dashboard.html"
 
 
 @asynccontextmanager
@@ -38,3 +42,11 @@ app.include_router(api_v1_router)
 @app.get("/healthz", tags=["system"])
 async def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "memoria-server"}
+
+
+@app.get("/", response_class=HTMLResponse, tags=["dashboard"])
+@app.get("/dashboard", response_class=HTMLResponse, tags=["dashboard"])
+async def serve_dashboard() -> HTMLResponse:
+    if DASHBOARD_TEMPLATE_PATH.exists():
+        return HTMLResponse(content=DASHBOARD_TEMPLATE_PATH.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>Memoria v3 Server Running</h1>")

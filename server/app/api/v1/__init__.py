@@ -12,6 +12,7 @@ from app.api.v1.scraper import router as scraper_router
 from app.api.v1.search import router as search_router
 from app.api.v1.sparks import router as sparks_router
 from app.api.v1.sync import router as sync_router
+from app.api.v1.system import router as system_router
 from app.api.v1.triage import router as triage_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
@@ -25,4 +26,5 @@ api_v1_router.include_router(scraper_router, tags=["scraper"])
 api_v1_router.include_router(search_router, tags=["search"])
 api_v1_router.include_router(sparks_router, tags=["sparks"])
 api_v1_router.include_router(sync_router, tags=["sync"])
+api_v1_router.include_router(system_router, tags=["system"])
 api_v1_router.include_router(triage_router, tags=["triage"])
