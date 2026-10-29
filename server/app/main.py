@@ -39,13 +39,17 @@ app.include_router(api_v1_router)
 
 
 @app.get("/health", tags=["system"])
+@app.head("/health", tags=["system"])
 @app.get("/healthz", tags=["system"])
+@app.head("/healthz", tags=["system"])
 async def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "memoria-server"}
 
 
 @app.get("/", response_class=HTMLResponse, tags=["dashboard"])
+@app.head("/", tags=["dashboard"])
 @app.get("/dashboard", response_class=HTMLResponse, tags=["dashboard"])
+@app.head("/dashboard", tags=["dashboard"])
 async def serve_dashboard() -> HTMLResponse:
     if DASHBOARD_TEMPLATE_PATH.exists():
         return HTMLResponse(content=DASHBOARD_TEMPLATE_PATH.read_text(encoding="utf-8"))
